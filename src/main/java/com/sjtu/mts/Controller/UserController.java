@@ -41,11 +41,7 @@ public class UserController {
             jsonArray.appendElement(jsonObject);
             return jsonArray;
         } */
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("login", 0);
-        JSONArray jsonArray = new JSONArray();
-        jsonArray.appendElement(jsonObject);
-        return jsonArray;
+        return userService.getAllUsers();
     }
     @GetMapping(path="/allManagers")
     @ResponseBody
