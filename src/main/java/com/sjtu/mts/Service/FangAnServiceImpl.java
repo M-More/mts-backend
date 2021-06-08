@@ -2,6 +2,7 @@ package com.sjtu.mts.Service;
 
 import com.sjtu.mts.Dao.FangAnDao;
 import com.sjtu.mts.Entity.FangAn;
+import com.sjtu.mts.Repository.SwordFidRepository;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,8 @@ public class FangAnServiceImpl implements FangAnService {
 
     @Autowired
     private FangAnDao fangAnDao;
+    @Autowired
+    private SwordFidRepository swordFidRepository;
 
     @Override
     public JSONObject findAllByUsername(String username){
@@ -123,6 +126,7 @@ public class FangAnServiceImpl implements FangAnService {
                 return result;
             }
             fangAnDao.deleteByFid(fid);
+            swordFidRepository.deleteByFid(fid);
             result.put("delFangAn", 1);
             return result;
         }catch (Exception e){

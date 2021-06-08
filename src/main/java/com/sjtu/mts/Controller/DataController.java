@@ -116,7 +116,7 @@ public class DataController {
             @RequestParam("endPublishedDay") String endPublishedDay
 
     ) {
-        return searchService.globalSearchResourceCount2(fid,startPublishedDay,endPublishedDay);
+        return searchService.globalSearchResourceCountByFid(fid,startPublishedDay,endPublishedDay);
     }
     @GetMapping("/globalSearch/cflagCount")
     @ResponseBody
@@ -136,7 +136,7 @@ public class DataController {
             @RequestParam("endPublishedDay") String endPublishedDay
 
     ) {
-        return searchService.globalSearchCflagCount2(fid,startPublishedDay,endPublishedDay);
+        return searchService.globalSearchCflagCountByFid(fid,startPublishedDay,endPublishedDay);
     }
     @GetMapping("/globalSearch/amountTrendCount")
     @ResponseBody
@@ -188,7 +188,7 @@ public class DataController {
             @RequestParam("endPublishedDay") String endPublishedDay
 
     ) {
-        return searchService.countArea2(fid,startPublishedDay,endPublishedDay);
+        return searchService.countAreaByFid(fid,startPublishedDay,endPublishedDay);
     }
 
     /*根据方案查找舆情
@@ -337,7 +337,7 @@ public class DataController {
     }
 
 
-    /*文本分类2
+    /*文本分类2，返回数据格式不同
     @author Fu Yongrui
      */
     @PostMapping(value = "/textClass2")
@@ -357,7 +357,7 @@ public class DataController {
     {
         return textClassService.clustering(fid,startPublishedDay,endPublishedDay);
     }
-    /*文本聚类2
+    /*文本聚类2,返回数据格式不同
     @author Fu Yongrui
      */
     @RequestMapping(value = "/clusteringData")
@@ -429,5 +429,42 @@ public class DataController {
                                                  @RequestParam("endPublishedDay") String endPublishedDay)
     {
         return sentimentService.sentimentTrendCount(fid,startPublishedDay,endPublishedDay);
+    }
+    /*自动识别事件关键词
+    @author Fu Yongrui
+     */
+    @PostMapping(value = "/autoaddEkeyword")
+    @ResponseBody
+    public JSONObject autoaddEkeyword(@RequestBody Map<String,String> textinfo
+                                      ){
+        return searchService.autoaddEkeyword(Long.parseLong(textinfo.get("fid")),textinfo.get("text"));
+    }
+    /*为方案添加敏感词
+    @author Fu Yongrui
+     */
+    @PostMapping(value = "/addSensitivewordForFid")
+    @ResponseBody
+    public JSONObject addSensitivewordForFid(@RequestBody Map<String,String> textinfo
+    ){
+        return searchService.addSensitivewordForFid(Long.parseLong(textinfo.get("fid")),textinfo.get("text"));
+    }
+    /*查看方案敏感词
+    @author Fu Yongrui
+     */
+    @GetMapping(value = "/sensitivewordForFid")
+    @ResponseBody
+    public JSONArray sensitivewordForFid(@RequestParam("fid") long fid
+    ){
+        return searchService.sensitivewordForFid(fid);
+    }
+    /*按方案查找敏感词
+    @author Fu Yongrui
+     */
+    @PostMapping(value = "/sensitiveWordByFid")
+    @ResponseBody
+    public JSONArray sensitiveWordByFid(@RequestBody Map<String,String> textinfo )
+    {
+        //return searchService.sensitiveWordFiltering(textinfo.get("text"));
+        return searchService.sensitiveWordByFid(Long.parseLong(textinfo.get("fid")),textinfo.get("text"));
     }
 }
