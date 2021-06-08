@@ -4,10 +4,11 @@ import com.sjtu.mts.Dao.FangAnDao;
 import com.sjtu.mts.Entity.*;
 import com.sjtu.mts.Keyword.KeywordResponse;
 import com.sjtu.mts.Keyword.MultipleThreadExtraction;
+import com.sjtu.mts.Keyword.TextRankKeyword;
 import com.sjtu.mts.Repository.AreaRepository;
 import com.sjtu.mts.Repository.SensitiveWordRepository;
+import com.sjtu.mts.Repository.SwordFidRepository;
 import com.sjtu.mts.Response.*;
-import com.sjtu.mts.rpc.TextAlertRpc;
 import net.minidev.json.JSONArray;
 import net.minidev.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +26,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.sjtu.mts.Keyword.Wrapper.min;
-import com.sjtu.mts.Entity.Wuser;
 
 
 @Service
@@ -34,18 +34,21 @@ public class SearchServiceImpl implements SearchService {
     private final ElasticsearchOperations elasticsearchOperations;
     private final AreaRepository areaRepository;
     private final SensitiveWordRepository sensitiveWordRepository;
+    private final SwordFidRepository swordFidRepository;
     static  boolean flag = false;
     static  boolean flagHanLp = false;
+    static  long nowFid = -1;
 
     @Autowired
     private FangAnDao fangAnDao;
 
 
-    public SearchServiceImpl(ElasticsearchOperations elasticsearchOperations,AreaRepository areaRepository,SensitiveWordRepository sensitiveWordRepository)
+    public SearchServiceImpl(ElasticsearchOperations elasticsearchOperations,AreaRepository areaRepository,SensitiveWordRepository sensitiveWordRepository,SwordFidRepository swordFidRepository)
     {
         this.elasticsearchOperations = elasticsearchOperations;
         this.areaRepository = areaRepository;
         this.sensitiveWordRepository = sensitiveWordRepository;
+        this.swordFidRepository = swordFidRepository;
     }
 
     @Override
@@ -55,7 +58,7 @@ public class SearchServiceImpl implements SearchService {
         Criteria criteria = new Criteria();
         if (!keyword.isEmpty())
         {
-            String[] searchSplitArray = keyword.trim().split("\\s+");;
+            String[] searchSplitArray = keyword.trim().split("\\s+");
             for (String searchString : searchSplitArray) {
                 criteria.subCriteria(new Criteria().and("content").contains(searchString).
                         or("title").contains(searchString));
@@ -137,7 +140,7 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public ResourceCountResponse globalSearchResourceCount2(long fid,String startPublishedDay, String endPublishedDay){
+    public ResourceCountResponse globalSearchResourceCountByFid(long fid,String startPublishedDay, String endPublishedDay){
         List<Long> resultList = new ArrayList<>();
         for (int fromType = 1; fromType <= 7 ; fromType++) {
 
@@ -194,7 +197,7 @@ public class SearchServiceImpl implements SearchService {
         return new CflagCountResponse(resultList.get(0), resultList.get(1));
     }
     @Override
-    public CflagCountResponse globalSearchCflagCount2(long fid, String startPublishedDay, String endPublishedDay){
+    public CflagCountResponse globalSearchCflagCountByFid(long fid, String startPublishedDay, String endPublishedDay){
         List<Long> resultList = new ArrayList<>();
         for (int cflag = 0; cflag <= 1 ; cflag++) {
             Criteria criteria = fangAnDao.criteriaByFid(fid);
@@ -402,7 +405,7 @@ public class SearchServiceImpl implements SearchService {
                 resultList.get(30),resultList.get(31),resultList.get(32),resultList.get(33));
     }
     @Override
-    public AreaAnalysisResponse countArea2(long fid,String startPublishedDay, String endPublishedDay){
+    public AreaAnalysisResponse countAreaByFid(long fid,String startPublishedDay, String endPublishedDay){
         List<Long> resultList = new ArrayList<>();
         List<Integer> codeids = Arrays.asList(11,12,13,14,15,21,22,23,31,32,33,34,35,36,37,41,42,43,44,45,46,50,51,52,53,54,61,62,63,64,65,71,81,91);
         for(int i =0;i<codeids.size();i++){
@@ -796,5 +799,94 @@ public class SearchServiceImpl implements SearchService {
         long end = System.currentTimeMillis();
         System.out.println("关键词提取耗时：" + (end-start) + "ms");
         return keywords;
+    }
+    @Override
+    public  JSONObject autoaddEkeyword(long fid,String text){
+        List<String> Ekeyword = new TextRankKeyword().getKeyword("", text);
+        System.out.println(Ekeyword);
+
+        JSONObject result = new JSONObject();
+        result.put("autoaddEkeyword", 0);
+        try {
+            FangAn oldFangAn = fangAnDao.findByFid(fid);
+            String oldEkeyword = oldFangAn.getEventKeyword();
+            for (String s:Ekeyword){
+                if (oldEkeyword.indexOf(s)==-1){
+                    oldEkeyword=oldEkeyword+" "+s;
+                }else {
+
+                }
+            }
+            oldFangAn.setEventKeyword(oldEkeyword);
+            //fangAnDao.deleteByFid(fid);
+            fangAnDao.save(oldFangAn);
+            result.put("autoaddEkeyword", 1);
+            return result;
+        }catch (Exception e){
+            result.put("autoaddEkeyword", 0);
+        }
+        return result;
+    }
+    @Override
+    public JSONObject addSensitivewordForFid(long fid,String text){
+        JSONObject result = new JSONObject();
+        result.put("addSensitivewordForFid", 0);
+        try {
+            SensitiveWordForFid sensitiveWordForFid = new SensitiveWordForFid(fid,text);
+            swordFidRepository.save(sensitiveWordForFid);
+            result.put("addSensitivewordForFid", 1);
+            return result;
+        }catch (Exception e){
+            result.put("addSensitivewordForFid", 0);
+        }
+        return result;
+    }
+    @Override
+    public  JSONArray sensitivewordForFid(long fid){
+        JSONArray result = new JSONArray();
+        if (swordFidRepository.existsByFid(fid)){
+            String sword = swordFidRepository.findByFid(fid).getContents();
+            JSONObject so = new JSONObject();
+            so.put("sword",sword);
+            result.add(so);
+        }
+        return result;
+    }
+    @Override
+    public JSONArray sensitiveWordByFid(long fid,String text){
+        long start=  System.currentTimeMillis();
+        if (fid != nowFid){
+            // 从数据库中获取敏感词对象集合
+            List<SensitiveWord> sensitiveWords = sensitiveWordRepository.findAll();
+            // 构建敏感词库
+            Set<String> sensitiveWordSet = new HashSet<>();
+            for (SensitiveWord s : sensitiveWords)
+            {
+                sensitiveWordSet.add(s.getContent().trim());
+            }
+            String swordfid ="";
+            String[] swordfidArray = {};
+            if (swordFidRepository.existsByFid(fid)){
+                swordfid = swordFidRepository.findByFid(fid).getContents();
+                 swordfidArray = swordfid.trim().split("\\s+");
+            }
+            if (swordfidArray.length>0){
+                for (String s:swordfidArray){
+                    sensitiveWordSet.add(s);
+                }
+            }
+
+            SensitiveWordUtil2.init(sensitiveWordSet);
+            flagHanLp = true;
+        }
+        try {
+            JSONArray result= SensitiveWordUtil2.getSensitiveWord(text);
+            long end = System.currentTimeMillis();
+            System.out.println("hanLp敏感词提取耗时：" + (end-start) + "ms");
+            return result;
+        }catch (Exception e){
+            System.out.println(e);
+        }
+        return null;
     }
 }
